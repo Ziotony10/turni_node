@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#3B82F6">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<title>Gestione Turni</title>
+<style>
+  :root {
+    --bg:        #0F172A;
+    --card:      #1E293B;
+    --card2:     #263348;
+    --border:    #334155;
+    --text:      #E2E8F0;
+    --muted:     #94A3B8;
+    --accent:    #3B82F6;
+    --radius:    10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  }
+  header h1 { font-size: 1.3rem; font-weight: 700; color: var(--text); }
+  header h1 span { color: var(--accent); }
+
+  .nav-controls { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+  .nav-controls select, .nav-controls button {
+    background: var(--card2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 6px 14px;
+    font-size: 0.9rem; cursor: pointer;
+  }
+  .nav-controls button:hover { background: var(--accent); border-color: var(--accent); }
+
+  /* ── MONTH TABS ── */
+  .month-tabs {
+    display: flex; gap: 4px; padding: 12px 24px;
+    background: var(--card); border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .month-tab {
+    padding: 6px 14px; border-radius: 20px; cursor: pointer;
+    font-size: 0.82rem; font-weight: 600; border: 1px solid transparent;
+    transition: all 0.15s; white-space: nowrap; color: var(--muted);
+  }
+  .month-tab:hover { color: var(--text); background: var(--card2); }
+  .month-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+  /* ── MAIN LAYOUT ── */
+  .main { display: flex; gap: 0; height: calc(100vh - 110px); }
+
+  /* ── CALENDAR TABLE ── */
+  .cal-wrap { flex: 1; overflow-y: auto; padding: 20px 24px; }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    background: var(--card2); color: var(--muted); font-size: 0.75rem;
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 10px 12px; text-align: left; position: sticky; top: 0; z-index: 2;
+  }
+  tr.day-row { cursor: pointer; transition: background 0.1s; }
+  tr.day-row:hover td { background: rgba(255,255,255,0.04) !important; }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--border); font-size: 0.875rem; vertical-align: middle; }
+
+  td.cell-data   { font-weight: 600; color: var(--muted); width: 100px; }
+  td.cell-giorno { color: var(--muted); width: 80px; font-size: 0.8rem; }
+  td.cell-turno  { width: 120px; }
+  td.cell-ore    { width: 70px; text-align: center; }
+  td.cell-note   { color: var(--muted); font-size: 0.8rem; }
+
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 0.8rem; font-weight: 700; color: white; letter-spacing: 0.03em;
+  }
+
+  tr.is-festivo td.cell-data { color: #EF4444; }
+  tr.is-sabato  td.cell-data { color: #F59E0B; }
+  tr.today td { background: rgba(59,130,246,0.07); }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 260px; border-left: 1px solid var(--border);
+    padding: 20px 16px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .sidebar h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 4px; }
+
+  .stat-card {
+    background: var(--card2); border-radius: var(--radius);
+    padding: 12px 14px; border: 1px solid var(--border);
+  }
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+  .stat-row span:first-child { font-size: 0.82rem; color: var(--muted); }
+  .stat-row span:last-child  { font-size: 0.9rem; font-weight: 700; }
+  .stat-row.highlight span:last-child { color: var(--accent); }
+
+  /* ── MODAL ── */
+  .overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6); z-index: 100;
+    align-items: center; justify-content: center;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 28px; width: 420px; max-width: 95vw;
+  }
+  .modal h2 { font-size: 1.1rem; margin-bottom: 20px; }
+  .modal h2 small { display: block; color: var(--muted); font-size: 0.8rem; font-weight: 400; margin-top: 2px; }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-full { grid-column: 1 / -1; }
+
+  label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  select, input[type=number], input[type=text] {
+    width: 100%; background: var(--card2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 8px 10px;
+    font-size: 0.9rem; outline: none; transition: border-color 0.15s;
+  }
+  select:focus, input:focus { border-color: var(--accent); }
+
+  /* Turno picker */
+  .turno-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .turno-btn {
+    padding: 6px 4px; border-radius: 8px; border: 2px solid transparent;
+    cursor: pointer; font-size: 0.8rem; font-weight: 700; color: white;
+    text-align: center; transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .turno-btn:hover { transform: scale(1.05); }
+  .turno-btn.selected { border-color: white; box-shadow: 0 0 0 3px rgba(255,255,255,0.3); }
+
+  .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
+  .btn { flex: 1; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 600; border: none; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: #2563EB; }
+  .btn-danger { background: #EF444420; color: #EF4444; border: 1px solid #EF444440; }
+  .btn-danger:hover { background: #EF4444; color: white; }
+  .btn-cancel { background: var(--card2); color: var(--muted); border: 1px solid var(--border); }
+  .btn-cancel:hover { color: var(--text); }
+
+  /* ── LOADING ── */
+  .loading { text-align: center; padding: 60px; color: var(--muted); }
+
+  .rep-toggle {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 14px; cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .rep-toggle:hover { border-color: var(--accent); }
+  .rep-toggle.active { border-color: #F59E0B; background: rgba(245,158,11,0.08); }
+  .rep-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--border); transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .rep-toggle.active .rep-dot { background: #F59E0B; }
+  #repLabel { font-size: 0.9rem; font-weight: 600; }
+  /* ── TIME PICKER ── */
+  .time-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .time-block {
+    flex: 1; background: var(--card2); border: 2px solid var(--border);
+    border-radius: 12px; padding: 12px; text-align: center; transition: border-color 0.2s, background 0.2s;
+  }
+  .time-block.modified-early { border-color: #F59E0B; background: rgba(245,158,11,0.06); }
+  .time-block.modified-late  { border-color: #EF4444; background: rgba(239,68,68,0.06); }
+  .time-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; }
+  .time-display {
+    font-size: 2rem; font-weight: 800; letter-spacing: .04em;
+    color: var(--text); font-variant-numeric: tabular-nums; line-height: 1; margin-bottom: 2px;
+  }
+  .time-hint { font-size: 0.7rem; color: var(--muted); margin-bottom: 10px; min-height: 14px; }
+  .time-btns { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 4px; margin-bottom: 8px; }
+  .time-adj {
+    background: var(--bg); border: 1px solid var(--border); color: var(--muted);
+    border-radius: 6px; padding: 5px 2px; font-size: 0.72rem; font-weight: 600; cursor: pointer; transition: all 0.12s;
+  }
+  .time-adj:hover { background: var(--accent); border-color: var(--accent); color: white; }
+  .time-reset { background: none; border: none; color: var(--border); font-size: 0.7rem; cursor: pointer; padding: 0; }
+  .time-reset:hover { color: #EF4444; }
+  .time-arrow { color: var(--muted); font-size: 1.4rem; flex-shrink: 0; }
+  .time-display { cursor: pointer; }
+  .time-display:hover { opacity: 0.75; }
+  .time-edit-input {
+    display: none;
+    width: 100%; background: var(--bg); border: 2px solid var(--accent);
+    color: var(--text); border-radius: 8px; padding: 4px 8px;
+    font-size: 1.4rem; font-weight: 800; text-align: center;
+    outline: none; margin-bottom: 4px;
+  }
+  .time-edit-input.visible { display: block; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🗓 Gestione <span>Turni</span></h1>
+  <nav style="display:flex;gap:4px;">
+    <a href="/bustapaga.html" style="color:var(--muted);text-decoration:none;font-size:0.9rem;padding:6px 14px;border-radius:8px;background:var(--card2);">💶 Busta Paga</a>
+    <a href="/impostazioni.html" style="color:var(--muted);text-decoration:none;font-size:0.9rem;padding:6px 14px;border-radius:8px;background:var(--card2);">⚙️ Impostazioni</a>
+  </nav>
+  <div class="nav-controls">
+    <button onclick="changeAnno(-1)">◀</button>
+    <select id="selAnno" onchange="loadAll()"></select>
+    <button onclick="changeAnno(1)">▶</button>
+  </div>
+  <button onclick="logout()" style="background:rgba(239,68,68,.15);color:#FCA5A5;border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:6px 14px;font-size:0.85rem;cursor:pointer;">Esci</button>
+  <span class="user-label" style="font-size:0.85rem;color:var(--muted)"></span>
+</header>
+
+<div class="month-tabs" id="monthTabs"></div>
+
+<div class="main">
+  <div class="cal-wrap">
+    <div id="calBody" class="loading">Caricamento…</div>
+  </div>
+  <div class="sidebar" id="sidebar">
+    <div class="loading" style="font-size:0.8rem">—</div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <h2 id="modalTitle">Modifica turno <small id="modalDate"></small></h2>
+
+    <div style="margin-bottom:14px">
+      <label>Turno</label>
+      <div class="turno-grid" id="turnoBtns"></div>
+    </div>
+
+    <!-- Time picker moderno -->
+    <div class="time-row">
+      <div class="time-block" id="blockInizio">
+        <div class="time-label">🕐 Inizio</div>
+        <div class="time-display" id="dispInizio" onclick="openTimeEdit('oraInizio')" title="Clicca per modificare">—:—</div>
+        <input type="text" class="time-edit-input" id="editInizio" placeholder="HH:MM" maxlength="5"
+               oninput="formatTimeInput(this)" onblur="commitTimeEdit('oraInizio')">
+        <div class="time-hint" id="hintInizio">standard</div>
+        <div class="time-btns">
+          <button class="time-adj" onclick="adjTime('oraInizio',-60)">-1h</button>
+          <button class="time-adj" onclick="adjTime('oraInizio',-30)">-30'</button>
+          <button class="time-adj" onclick="adjTime('oraInizio',+30)">+30'</button>
+          <button class="time-adj" onclick="adjTime('oraInizio',+60)">+1h</button>
+        </div>
+        <button class="time-reset" onclick="resetTime('oraInizio')">✕ reset</button>
+        <input type="hidden" id="oraInizio">
+      </div>
+
+      <div class="time-arrow">→</div>
+
+      <div class="time-block" id="blockFine">
+        <div class="time-label">🕗 Fine</div>
+        <div class="time-display" id="dispFine" onclick="openTimeEdit('oraFine')" title="Clicca per modificare">—:—</div>
+        <input type="text" class="time-edit-input" id="editFine" placeholder="HH:MM" maxlength="5"
+               oninput="formatTimeInput(this)" onblur="commitTimeEdit('oraFine')">
+        <div class="time-hint" id="hintFine">standard</div>
+        <div class="time-btns">
+          <button class="time-adj" onclick="adjTime('oraFine',-60)">-1h</button>
+          <button class="time-adj" onclick="adjTime('oraFine',-30)">-30'</button>
+          <button class="time-adj" onclick="adjTime('oraFine',+30)">+30'</button>
+          <button class="time-adj" onclick="adjTime('oraFine',+60)">+1h</button>
+        </div>
+        <button class="time-reset" onclick="resetTime('oraFine')">✕ reset</button>
+        <input type="hidden" id="oraFine">
+      </div>
+    </div>
+
+    <!-- Anteprima calcolo automatico -->
+    <div id="previstaBox" style="display:none; margin:12px 0; background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:10px 14px;">
+      <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px;">📊 Calcolo automatico</div>
+      <div id="previstaContent" style="font-size:0.82rem;display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;"></div>
+    </div>
+
+    <div class="form-grid" style="margin-top:4px">
+      <div class="form-full">
+        <label>Reperibilità</label>
+        <div class="rep-toggle" onclick="toggleRep()">
+          <div class="rep-dot" id="repDot"></div>
+          <span id="repLabel">No</span>
+          <span id="repTipo" style="margin-left:auto;font-size:0.8rem;color:var(--muted)"></span>
+        </div>
+        <input type="hidden" id="reperibilita" value="false">
+      </div>
+      <div class="form-full">
+        <label>Note</label>
+        <input type="text" id="note" placeholder="Note opzionali…">
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-danger" onclick="deleteTurno()">Elimina</button>
+      <button class="btn btn-primary" onclick="saveTurno()">Salva</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '';
+const MESI_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+const GIORNI_IT = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+
+let anno = new Date().getFullYear();
+let mese = new Date().getMonth() + 1;
+let config = {};
+let turniMese = {};
+let festivita = new Set();
+let selectedTurno = null;
+let editingData = null;
+
+// ── INIT ────────────────────────────────────────────────────────────────────
+async function init() {
+  // Anno selector
+  const sel = document.getElementById('selAnno');
+  for (let y = 2024; y <= 2030; y++) {
+    const o = document.createElement('option');
+    o.value = y; o.textContent = y;
+    if (y === anno) o.selected = true;
+    sel.appendChild(o);
+  }
+
+  // Fetch config e festività
+  const [cfg, fest] = await Promise.all([
+    fetch(`${API}/api/config`).then(r => r.json()),
+    fetch(`${API}/api/festivita`).then(r => r.json())
+  ]);
+  config = cfg;
+  festivita = new Set(fest);
+
+  buildMonthTabs();
+  buildTurnoBtns();
+  loadAll();
+}
+
+function changeAnno(d) {
+  anno = parseInt(document.getElementById('selAnno').value) + d;
+  document.getElementById('selAnno').value = anno;
+  loadAll();
+}
+
+async function loadAll() {
+  anno = parseInt(document.getElementById('selAnno').value);
+  await loadMese();
+  loadRiepilogo();
+}
+
+// ── TABS ────────────────────────────────────────────────────────────────────
+function buildMonthTabs() {
+  const c = document.getElementById('monthTabs');
+  MESI_IT.forEach((m, i) => {
+    const d = document.createElement('div');
+    d.className = 'month-tab' + (i+1 === mese ? ' active' : '');
+    d.textContent = m;
+    d.onclick = () => { mese = i+1; document.querySelectorAll('.month-tab').forEach((t,j)=>t.classList.toggle('active',j===i)); loadMese(); loadRiepilogo(); };
+    c.appendChild(d);
+  });
+}
+
+// ── CALENDARIO ──────────────────────────────────────────────────────────────
+async function loadMese() {
+  document.getElementById('calBody').innerHTML = '<div class="loading">Caricamento…</div>';
+  turniMese = await fetch(`${API}/api/turni/${anno}/${mese}`).then(r => r.json());
+  renderCalendario();
+}
+
+function renderCalendario() {
+  const giorni = daysInMonth(anno, mese);
+  const oggi = new Date().toISOString().slice(0,10);
+
+  let html = `<table>
+    <thead><tr>
+      <th>Data</th><th>Giorno</th><th>Turno</th>
+      <th style="text-align:center">Ore Tot</th>
+      <th style="text-align:center">Diurne</th>
+      <th style="text-align:center">Notturne</th>
+      <th style="text-align:center">Strao D</th>
+      <th style="text-align:center">Strao N</th>
+      <th style="text-align:center">Rep.</th>
+      <th>Note</th>
+    </tr></thead><tbody>`;
+
+  for (let g = 1; g <= giorni; g++) {
+    const dataStr = `${anno}-${String(mese).padStart(2,'0')}-${String(g).padStart(2,'0')}`;
+    const d = new Date(dataStr + 'T12:00:00');
+    const dow = d.getDay();
+    const isFest = festivita.has(dataStr) || dow === 0;
+    const isSab = dow === 6;
+    const isOggi = dataStr === oggi;
+    const row = turniMese[dataStr] || {};
+    const t = row.turno || '';
+    const cfg = config[t] || {};
+
+    const oreDiurne  = row.ore_diurne   || 0;
+    const oreNott    = row.ore_notturne  || 0;
+    const oreTot     = oreDiurne + oreNott;
+    const straoD     = (row.strao_diurno||0)   + (row.strao_fest_diurno||0);
+    const straoN     = (row.strao_notturno||0) + (row.strao_fest_notturno||0);
+    const isFestStrao = (row.strao_fest_diurno||0) + (row.strao_fest_notturno||0) > 0;
+    const rep = row.reperibilita || '';
+
+    const cls = [
+      'day-row',
+      isFest ? 'is-festivo' : '',
+      isSab  ? 'is-sabato' : '',
+      isOggi ? 'today' : ''
+    ].filter(Boolean).join(' ');
+
+    const badgeHtml = t
+      ? `<span class="badge" style="background:${cfg.colore || '#555'}">${t}</span>`
+      : `<span style="color:var(--border)">—</span>`;
+
+    const repIcon = rep ? { feriale:'🔵', semifestiva:'🟡', festiva:'🔴' }[rep] || '●' : '';
+    const straoColor = isFestStrao ? '#EC4899' : '#F59E0B';
+
+    html += `<tr class="${cls}" onclick="openModal('${dataStr}')">
+      <td class="cell-data">${g} ${MESI_IT[mese-1].slice(0,3)}</td>
+      <td class="cell-giorno">${GIORNI_IT[dow]}</td>
+      <td class="cell-turno">${badgeHtml}</td>
+      <td class="cell-ore">${oreTot ? fmtH(oreTot) : '—'}</td>
+      <td class="cell-ore">${oreDiurne ? fmtH(oreDiurne) : '—'}</td>
+      <td class="cell-ore">${oreNott ? fmtH(oreNott) : '—'}</td>
+      <td class="cell-ore">${straoD ? '<span style="color:'+straoColor+'">+'+fmtH(straoD)+'</span>' : '—'}</td>
+      <td class="cell-ore">${straoN ? '<span style="color:'+straoColor+'">+'+fmtH(straoN)+'</span>' : '—'}</td>
+      <td class="cell-ore">${repIcon || '—'}</td>
+      <td class="cell-note">${row.note || ''}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById('calBody').innerHTML = html;
+}
+
+// ── SIDEBAR RIEPILOGO ────────────────────────────────────────────────────────
+async function loadRiepilogo() {
+  const data = await fetch(`${API}/api/riepilogo/${anno}`).then(r => r.json());
+  const m = data[mese] || {};
+
+  const oreOrd = (m.ore_diurne || 0) + (m.ore_notturne || 0);
+  const straoTot = (m.strao_diurno || 0) + (m.strao_notturno || 0);
+  const repTot = (m.reperibilita_feriale||0) + (m.reperibilita_semifestiva||0) + (m.reperibilita_festiva||0);
+
+  document.getElementById('sidebar').innerHTML = `
+    <div>
+      <h3>📅 ${MESI_IT[mese-1]} ${anno}</h3>
+    </div>
+
+    <div class="stat-card">
+      <h3>Ore lavorate</h3>
+      <div class="stat-row highlight"><span>Totale ordinario</span><span>${fmtH(oreOrd)}</span></div>
+      <div class="stat-row"><span>↳ Diurne</span><span>${fmtH(m.ore_diurne||0)}</span></div>
+      <div class="stat-row"><span>↳ Notturne</span><span>${fmtH(m.ore_notturne||0)}</span></div>
+    </div>
+
+    <div class="stat-card">
+      <h3>Straordinari</h3>
+      <div class="stat-row highlight"><span>Totale strao</span><span>${fmtH(straoTot)}</span></div>
+      <div class="stat-row"><span>↳ Diurni</span><span>${fmtH(m.strao_diurno||0)}</span></div>
+      <div class="stat-row"><span>↳ Notturni</span><span>${fmtH(m.strao_notturno||0)}</span></div>
+    </div>
+
+    <div class="stat-card">
+      <h3>Assenze</h3>
+      <div class="stat-row"><span>Malattia</span><span>${m.mal||0} gg</span></div>
+      <div class="stat-row"><span>Ferie</span><span>${m.ferie||0} gg</span></div>
+      <div class="stat-row"><span>Riposo Comp.</span><span>${m.rc||0} gg</span></div>
+      <div class="stat-row"><span>Riposo Dom.</span><span>${m.r||0} gg</span></div>
+      <div class="stat-row"><span>Rid. Orario</span><span>${m.rot||0} gg</span></div>
+    </div>
+
+    <div class="stat-card">
+      <h3>🔔 Reperibilità</h3>
+      <div class="stat-row highlight"><span>Totale</span><span>${repTot}</span></div>
+      <div class="stat-row"><span>🔵 Feriale</span><span>${m.reperibilita_feriale||0}</span></div>
+      <div class="stat-row"><span>🟡 Semi-festiva</span><span>${m.reperibilita_semifestiva||0}</span></div>
+      <div class="stat-row"><span>🔴 Festiva</span><span>${m.reperibilita_festiva||0}</span></div>
+    </div>
+
+    <div class="stat-card">
+      <h3>📊 Anno ${anno}</h3>
+      ${Object.entries(data).map(([mes, val]) => {
+        const tot = (val.ore_diurne||0)+(val.ore_notturne||0);
+        return tot > 0 ? `<div class="stat-row"><span>${MESI_IT[mes-1].slice(0,3)}</span><span>${fmtH(tot)}</span></div>` : '';
+      }).join('')}
+    </div>
+  `;
+}
+
+// ── MODAL ────────────────────────────────────────────────────────────────────
+function buildTurnoBtns() {
+  const c = document.getElementById('turnoBtns');
+  Object.entries(config).forEach(([code, cfg]) => {
+    const b = document.createElement('div');
+    b.className = 'turno-btn';
+    b.style.background = cfg.colore;
+    b.textContent = code;
+    b.title = cfg.label;
+    b.onclick = () => selectTurno(code);
+    b.dataset.code = code;
+    c.appendChild(b);
+  });
+  // Pulsante nessun turno
+  const b = document.createElement('div');
+  b.className = 'turno-btn';
+  b.style.background = '#475569';
+  b.textContent = '✕';
+  b.title = 'Nessun turno';
+  b.onclick = () => selectTurno('');
+  b.dataset.code = '';
+  c.appendChild(b);
+}
+
+const REP_LABELS = { feriale: '🔵 Feriale', semifestiva: '🟡 Semi-festiva', festiva: '🔴 Festiva' };
+
+function calcTipoRepFE(turno, dataStr) {
+  if (turno === 'RC') return 'semifestiva';
+  if (turno === 'R' || festivita.has(dataStr)) return 'festiva';
+  const cfg = config[turno] || {};
+  if (cfg.lavorativo) return 'feriale';
+  return '';
+}
+
+function toggleRep() {
+  const isActive = document.getElementById('reperibilita').value === 'true';
+  setRep(!isActive);
+}
+
+function setRep(active) {
+  const toggle = document.querySelector('.rep-toggle');
+  const dot    = document.getElementById('repDot');
+  const label  = document.getElementById('repLabel');
+  const tipo   = document.getElementById('repTipo');
+  document.getElementById('reperibilita').value = active ? 'true' : 'false';
+  toggle.classList.toggle('active', active);
+  label.textContent = active ? 'Sì' : 'No';
+  if (active) {
+    const t = calcTipoRepFE(selectedTurno, editingData);
+    tipo.textContent = REP_LABELS[t] || '';
+  } else {
+    tipo.textContent = '';
+  }
+}
+
+function selectTurno(code) {
+  selectedTurno = code;
+  document.querySelectorAll('.turno-btn').forEach(b => {
+    b.classList.toggle('selected', b.dataset.code === code);
+  });
+  // aggiorna etichetta reperibilità se attiva
+  if (document.getElementById('reperibilita').value === 'true') {
+    const t = calcTipoRepFE(code, editingData);
+    document.getElementById('repTipo').textContent = REP_LABELS[t] || '';
+  }
+  updateTimeDisplay('oraInizio');
+  updateTimeDisplay('oraFine');
+  aggiornaPreventivoLive();
+}
+
+function openModal(dataStr) {
+  editingData = dataStr;
+  const d = new Date(dataStr + 'T12:00:00');
+  const dow = GIORNI_IT[d.getDay()];
+  const row = turniMese[dataStr] || {};
+
+  document.getElementById('modalDate').textContent = `${dow} ${dataStr}`;
+  document.getElementById('oraInizio').value = row.ora_inizio || '';
+  document.getElementById('oraFine').value   = row.ora_fine   || '';
+  document.getElementById('note').value      = row.note       || '';
+
+  selectTurno(row.turno || '');
+  setRep(!!row.reperibilita);
+  updateTimeDisplay('oraInizio');
+  updateTimeDisplay('oraFine');
+  aggiornaPreventivoLive();
+  document.getElementById('overlay').classList.add('open');
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('overlay')) {
+    document.getElementById('overlay').classList.remove('open');
+    editingData = null;
+  }
+}
+
+// ── TIME PICKER ─────────────────────────────────────────────────────────────
+function minToStr(m) {
+  m = ((m % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+}
+
+function getStdTime(field) {
+  const cfg = config[selectedTurno] || {};
+  if (field === 'oraInizio') return cfg.std_ini != null ? cfg.std_ini : null;
+  if (field === 'oraFine')   return cfg.std_fin != null ? cfg.std_fin : null;
+  return null;
+}
+
+function updateTimeDisplay(field) {
+  const val     = document.getElementById(field).value;
+  const isIni   = field === 'oraInizio';
+  const dispId  = isIni ? 'dispInizio' : 'dispFine';
+  const hintId  = isIni ? 'hintInizio' : 'hintFine';
+  const blockId = isIni ? 'blockInizio' : 'blockFine';
+  const block   = document.getElementById(blockId);
+  const std     = getStdTime(field);
+
+  block.classList.remove('modified-early','modified-late');
+
+  if (!val) {
+    document.getElementById(dispId).textContent = std != null ? minToStr(std) : '—:—';
+    document.getElementById(hintId).textContent = 'standard';
+    return;
+  }
+
+  document.getElementById(dispId).textContent = val;
+
+  if (std != null) {
+    const effMin = toMin(val);
+    const diff   = isIni ? std - effMin : effMin - std;
+    if (diff > 0) {
+      block.classList.add(isIni ? 'modified-early' : 'modified-late');
+      document.getElementById(hintId).textContent = `+${Math.round(diff/60*10)/10}h strao`;
+    } else if (diff < 0) {
+      document.getElementById(hintId).textContent = `${Math.round(diff/60*10)/10}h`;
+    } else {
+      document.getElementById(hintId).textContent = 'uguale allo standard';
+    }
+  } else {
+    document.getElementById(hintId).textContent = '';
+  }
+}
+
+function formatTimeInput(el) {
+  // Inserisce automaticamente i ":" dopo le prime 2 cifre
+  let v = el.value.replace(/[^\d]/g, '');
+  if (v.length >= 3) v = v.slice(0,2) + ':' + v.slice(2,4);
+  el.value = v;
+}
+
+function openTimeEdit(field) {
+  const isIni  = field === 'oraInizio';
+  const dispId = isIni ? 'dispInizio' : 'dispFine';
+  const editId = isIni ? 'editInizio' : 'editFine';
+  const cur    = document.getElementById(field).value;
+  const std    = getStdTime(field);
+  const editEl = document.getElementById(editId);
+
+  editEl.value = cur || (std != null ? minToStr(std) : '');
+  document.getElementById(dispId).style.display = 'none';
+  editEl.classList.add('visible');
+  editEl.focus();
+}
+
+function commitTimeEdit(field) {
+  const isIni  = field === 'oraInizio';
+  const editId = isIni ? 'editInizio' : 'editFine';
+  const raw    = document.getElementById(editId).value.trim();
+  // Valida formato HH:MM
+  const match  = raw.match(/^(\d{1,2}):(\d{2})$/);
+  if (match) {
+    const h = parseInt(match[1]), m = parseInt(match[2]);
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+      document.getElementById(field).value = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    }
+  }
+  closeTimeEdit(field);
+  updateTimeDisplay(field);
+  aggiornaPreventivoLive();
+}
+
+function closeTimeEdit(field) {
+  const isIni  = field === 'oraInizio';
+  const dispId = isIni ? 'dispInizio' : 'dispFine';
+  const editId = isIni ? 'editInizio' : 'editFine';
+  document.getElementById(editId).classList.remove('visible');
+  document.getElementById(dispId).style.display = '';
+}
+
+function adjTime(field, deltaMins) {
+  const cur = document.getElementById(field).value;
+  const std = getStdTime(field);
+  let base;
+  if (cur) {
+    base = toMin(cur);
+  } else if (std != null) {
+    base = std;
+  } else {
+    base = 0;
+  }
+  document.getElementById(field).value = minToStr(base + deltaMins);
+  updateTimeDisplay(field);
+  aggiornaPreventivoLive();
+}
+
+function resetTime(field) {
+  document.getElementById(field).value = '';
+  updateTimeDisplay(field);
+  aggiornaPreventivoLive();
+}
+
+function resetAllTimes() {
+  resetTime('oraInizio');
+  resetTime('oraFine');
+}
+
+
+function splitDiurnoNotturno(start, end) {
+  if (end <= start) end += 1440;
+  const notturni = [[0,360],[1200,1440],[1440,1800]];
+  let nott = 0;
+  for (const [ns,ne] of notturni) {
+    const s = Math.max(start, ns), e2 = Math.min(end, ne);
+    if (e2 > s) nott += e2 - s;
+  }
+  const tot = end - start;
+  return [Math.round((tot-nott)/60*100)/100, Math.round(nott/60*100)/100];
+}
+
+function toMin(s) {
+  if (!s) return null;
+  const [h,m] = s.split(':').map(Number);
+  return h*60 + m;
+}
+
+function calcolaOreLocale(turno, iniStr, finStr, dataStr) {
+  const r = { ore_diurne:0, ore_notturne:0, strao_diurno:0, strao_notturno:0, strao_fest_diurno:0, strao_fest_notturno:0 };
+  const eff_ini = toMin(iniStr);
+  const eff_fin = toMin(finStr);
+  const cfg = config[turno] || {};
+  const std_ini = cfg.std_ini != null ? cfg.std_ini : null;
+  const std_fin = cfg.std_fin != null ? cfg.std_fin : null;
+  const hasStd  = std_ini !== null && std_fin !== null;
+
+  // R → strao festivo se c'è orario effettivo
+  if (turno === 'R') {
+    if (eff_ini !== null && eff_fin !== null) {
+      const [d,n] = splitDiurnoNotturno(eff_ini, eff_fin);
+      r.strao_fest_diurno=d; r.strao_fest_notturno=n;
+    }
+    return r;
+  }
+
+  // RC → strao feriale se c'è orario effettivo
+  if (turno === 'RC') {
+    if (eff_ini !== null && eff_fin !== null) {
+      const [d,n] = splitDiurnoNotturno(eff_ini, eff_fin);
+      r.strao_diurno=d; r.strao_notturno=n;
+    }
+    return r;
+  }
+
+  // Assenza senza orario standard → strao feriale se lavora
+  if (!hasStd) {
+    if (eff_ini !== null && eff_fin !== null) {
+      const [d,n] = splitDiurnoNotturno(eff_ini, eff_fin);
+      r.strao_diurno=d; r.strao_notturno=n;
+    }
+    return r;
+  }
+
+  // Turno lavorativo → ordinario sempre (domenica inclusa)
+  if (eff_ini === null && eff_fin === null) {
+    const [d,n] = splitDiurnoNotturno(std_ini, std_fin);
+    r.ore_diurne=d; r.ore_notturne=n;
+    return r;
+  }
+
+  const ini = eff_ini ?? std_ini, fin = eff_fin ?? std_fin;
+  const std_fin_n = std_fin > std_ini ? std_fin : std_fin + 1440;
+  const fin_n     = fin     > ini     ? fin     : fin + 1440;
+
+  const ord_ini = Math.max(ini, std_ini), ord_fin = Math.min(fin_n, std_fin_n);
+  if (ord_fin > ord_ini) { const [d,n]=splitDiurnoNotturno(ord_ini,ord_fin); r.ore_diurne+=d; r.ore_notturne+=n; }
+  if (ini < std_ini)     { const [d,n]=splitDiurnoNotturno(ini,std_ini);     r.strao_diurno+=d; r.strao_notturno+=n; }
+  if (fin_n > std_fin_n) { const [d,n]=splitDiurnoNotturno(std_fin_n,fin_n); r.strao_diurno+=d; r.strao_notturno+=n; }
+  return r;
+}
+
+function aggiornaPreventivoLive() {
+  if (!editingData) return;
+  const turno  = selectedTurno;
+  const iniStr = document.getElementById('oraInizio').value;
+  const finStr = document.getElementById('oraFine').value;
+  const ore    = calcolaOreLocale(turno, iniStr, finStr, editingData);
+
+  const righe = [
+    ['Ord. Diurne',    ore.ore_diurne],
+    ['Ord. Notturne',  ore.ore_notturne],
+    ['Strao Diurno',   ore.strao_diurno],
+    ['Strao Notturno', ore.strao_notturno],
+    ['Strao Fest. D',  ore.strao_fest_diurno],
+    ['Strao Fest. N',  ore.strao_fest_notturno],
+  ].filter(([,v]) => v > 0);
+
+  const box = document.getElementById('previstaBox');
+  if (righe.length === 0) { box.style.display='none'; return; }
+  box.style.display = 'block';
+  document.getElementById('previstaContent').innerHTML = righe.map(([label, val]) =>
+    `<div style="color:var(--muted)">${label}</div><div style="font-weight:700;color:${val>0?'#34D399':'var(--text)'}">${fmtH(val)}</div>`
+  ).join('');
+}
+
+async function saveTurno() {
+  if (!editingData) return;
+  const hasRep = document.getElementById('reperibilita').value === 'true';
+  await fetch(`${API}/api/turni/${editingData}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      turno:        selectedTurno || null,
+      ora_inizio:   document.getElementById('oraInizio').value || null,
+      ora_fine:     document.getElementById('oraFine').value   || null,
+      reperibilita: hasRep,
+      note:         document.getElementById('note').value || null,
+    })
+  });
+  closeModal();
+  await loadMese();
+  loadRiepilogo();
+}
+
+async function deleteTurno() {
+  if (!editingData) return;
+  await fetch(`${API}/api/turni/${editingData}`, { method: 'DELETE' });
+  closeModal();
+  await loadMese();
+  loadRiepilogo();
+}
+
+// ── UTILS ────────────────────────────────────────────────────────────────────
+function daysInMonth(y, m) {
+  return new Date(y, m, 0).getDate();
+}
+function fmtH(h) {
+  if (!h && h !== 0) return '—';
+  const hh = Math.floor(h);
+  const mm = Math.round((h - hh) * 60);
+  return mm > 0 ? `${hh}:${String(mm).padStart(2,'0')}` : `${hh}:00`;
+}
+
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBtn').style.display = 'none';
+});
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+</script>
+<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
+// ── AUTH ─────────────────────────────────────────────────────────────────────
+function getToken() { return localStorage.getItem('token'); }
+function getNome()  { return localStorage.getItem('nome') || localStorage.getItem('username') || ''; }
+function logout()   { localStorage.removeItem('token'); localStorage.removeItem('username'); localStorage.removeItem('nome'); window.location.href='/login.html'; }
+
+// Inietta token in ogni fetch API
+const _origFetch = window.fetch.bind(window);
+window.fetch = function(url, opts={}) {
+  const token = getToken();
+  if (token && typeof url === 'string' && url.startsWith('/api/')) {
+    opts.headers = { ...(opts.headers||{}), 'Authorization': 'Bearer ' + token };
+  }
+  return _origFetch(url, opts).then(res => {
+    if (res.status === 401 && typeof url === 'string' && url.startsWith('/api/')) {
+      logout(); throw new Error('Non autorizzato');
+    }
+    return res;
+  });
+};
+
+// Controlla login all'avvio
+(async function checkAuth() {
+  if (!getToken()) { window.location.href='/login.html'; return; }
+  try {
+    const me = await fetch('/api/auth/me').then(r=>r.json());
+    const nomeTxt = getNome();
+    document.querySelectorAll('.user-label').forEach(el => el.textContent = '👤 ' + nomeTxt);
+    if(typeof init === 'function') init();
+    else if(typeof loadAll === 'function') loadAll();
+    else if(typeof load === 'function') load();
+    else if(typeof carica === 'function') carica();
+  } catch(e) { logout(); }
+})();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#3B82F6">
+<title>Impostazioni – Gestione Turni</title>
+<style>
+  :root { --bg:#0F172A; --card:#1E293B; --card2:#263348; --border:#334155; --text:#E2E8F0; --muted:#94A3B8; --accent:#3B82F6; --radius:10px; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; }
+  header { background:var(--card); border-bottom:1px solid var(--border); padding:16px 24px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  header h1 { font-size:1.2rem; font-weight:700; }
+  header h1 span { color:var(--accent); }
+  nav { display:flex; gap:4px; }
+  nav a { color:var(--muted); text-decoration:none; font-size:0.9rem; padding:6px 14px; border-radius:8px; background:var(--card2); }
+  nav a:hover { color:var(--text); }
+  .header-right { display:flex; align-items:center; gap:10px; margin-left:auto; }
+  .user-label { font-size:0.85rem; color:var(--muted); }
+  .btn-logout { background:rgba(239,68,68,.15); color:#FCA5A5; border:1px solid rgba(239,68,68,.3); border-radius:8px; padding:6px 14px; font-size:0.85rem; cursor:pointer; }
+  .btn-logout:hover { background:#EF4444; color:white; }
+
+  .container { max-width:860px; margin:32px auto; padding:0 24px; display:flex; flex-direction:column; gap:20px; }
+  .section-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:24px; }
+  .section-card h2 { font-size:0.82rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:18px; }
+  .fields-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .field { display:flex; flex-direction:column; gap:6px; }
+  label { font-size:0.78rem; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+  .field-row { display:flex; align-items:center; gap:8px; }
+  .field-row span { font-size:0.85rem; color:var(--muted); min-width:24px; }
+  input[type=number] { flex:1; background:var(--card2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:9px 12px; font-size:0.9rem; outline:none; transition:border-color .15s; }
+  input:focus { border-color:var(--accent); }
+  .note { font-size:0.78rem; color:var(--muted); font-style:italic; margin-top:4px; }
+  .save-bar { display:flex; align-items:center; gap:12px; justify-content:flex-end; }
+  .btn-save { background:var(--accent); color:white; border:none; border-radius:10px; padding:11px 28px; font-size:0.95rem; font-weight:700; cursor:pointer; }
+  .btn-save:hover { background:#2563EB; }
+  .saved-msg { color:#34D399; font-size:0.85rem; display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚙️ <span>Impostazioni</span></h1>
+  <nav>
+    <a href="/">📅 Calendario</a>
+    <a href="/bustapaga.html">💶 Busta Paga</a>
+  </nav>
+  <div class="header-right">
+    <span class="user-label"></span>
+    <button class="btn-logout" onclick="logout()">Esci</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="section-card">
+    <h2>💰 Retribuzione base</h2>
+    <div class="fields-grid">
+      <div class="field">
+        <label>Retribuzione totale mensile (€)</label>
+        <div class="field-row"><input type="number" id="retribuzione_totale" step="0.01"><span>€</span></div>
+        <div class="note">Totale reale in busta incluse voci esterne</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <h2>🌙 Indennità notturne e domenicali</h2>
+    <div class="fields-grid">
+      <div class="field"><label>Ore notturne in turno 50% (€/h)</label><div class="field-row"><input type="number" id="tariffa_nott_50" step="0.00001"><span>€/h</span></div></div>
+      <div class="field"><label>Indennità domenicale (€/h)</label><div class="field-row"><input type="number" id="tariffa_dom" step="0.00001"><span>€/h</span></div></div>
+      <div class="field"><label>Lavoro ordinario notte (€/h)</label><div class="field-row"><input type="number" id="tariffa_nott_ord" step="0.00001"><span>€/h</span></div></div>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <h2>⏱ Straordinari</h2>
+    <div class="fields-grid">
+      <div class="field"><label>Strao Feriale Diurno 150% (€/h)</label><div class="field-row"><input type="number" id="tariffa_strao_fer_d" step="0.00001"><span>€/h</span></div></div>
+      <div class="field"><label>Strao Feriale Notturno 160% (€/h)</label><div class="field-row"><input type="number" id="tariffa_strao_fer_n" step="0.00001"><span>€/h</span></div></div>
+      <div class="field"><label>Strao Festivo Diurno 160% (€/h)</label><div class="field-row"><input type="number" id="tariffa_strao_fest_d" step="0.00001"><span>€/h</span></div></div>
+      <div class="field"><label>Strao Festivo Notturno 175% (€/h)</label><div class="field-row"><input type="number" id="tariffa_strao_fest_n" step="0.00001"><span>€/h</span></div></div>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <h2>🔔 Reperibilità</h2>
+    <div class="fields-grid">
+      <div class="field"><label>Indennità Feriale (€/evento)</label><div class="field-row"><input type="number" id="tariffa_rep_feriale" step="0.01"><span>€</span></div></div>
+      <div class="field"><label>Indennità Semifestiva (€/evento)</label><div class="field-row"><input type="number" id="tariffa_rep_semifestiva" step="0.01"><span>€</span></div></div>
+      <div class="field"><label>Indennità Festiva (€/evento)</label><div class="field-row"><input type="number" id="tariffa_rep_festiva" step="0.01"><span>€</span></div></div>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <h2>📋 Voci fisse e trattenute</h2>
+    <div class="fields-grid">
+      <div class="field"><label>Indennità turno X (€/mese)</label><div class="field-row"><input type="number" id="indennita_turno" step="0.01"><span>€</span></div></div>
+      <div class="field"><label>Trattenuta sindacato CISL (€)</label><div class="field-row"><input type="number" id="trattenuta_sindacato" step="0.01"><span>€</span></div></div>
+      <div class="field"><label>Add. regionale (€)</label><div class="field-row"><input type="number" id="trattenuta_regionale" step="0.01"><span>€</span></div></div>
+      <div class="field"><label>Contr. Pegaso (€)</label><div class="field-row"><input type="number" id="trattenuta_pegaso" step="0.01"><span>€</span></div></div>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <h2>🏛 Fisco (INPS e IRPEF)</h2>
+    <div class="fields-grid">
+      <div class="field">
+        <label>Aliquota INPS dipendente (%)</label>
+        <div class="field-row"><input type="number" id="aliquota_inps" step="0.01"><span>%</span></div>
+        <div class="note">Default 9.19%</div>
+      </div>
+      <div class="field">
+        <label>Detrazioni lavoro dipendente annue (€)</label>
+        <div class="field-row"><input type="number" id="detrazioni_annue" step="0.01"><span>€</span></div>
+        <div class="note">Art. 13 TUIR — default 1.955 €</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="save-bar">
+    <span class="saved-msg" id="savedMsg">✓ Salvato!</span>
+    <button class="btn-save" onclick="salva()">Salva impostazioni</button>
+  </div>
+</div>
+
+<script>
+const CAMPI = ["retribuzione_totale","tariffa_nott_50","tariffa_dom","tariffa_nott_ord",
+  "tariffa_strao_fer_d","tariffa_strao_fer_n","tariffa_strao_fest_d","tariffa_strao_fest_n",
+  "tariffa_rep_feriale","tariffa_rep_semifestiva","tariffa_rep_festiva",
+  "indennita_turno","trattenuta_sindacato","trattenuta_regionale","trattenuta_pegaso",
+  "aliquota_inps","detrazioni_annue"];
+
+function getToken()  { return localStorage.getItem('token'); }
+function getNome()   { return localStorage.getItem('nome') || localStorage.getItem('username') || ''; }
+function logout()    { localStorage.removeItem('token'); localStorage.removeItem('username'); localStorage.removeItem('nome'); window.location.href='/login.html'; }
+
+// Inietta token in ogni fetch API
+const _origFetch = window.fetch.bind(window);
+window.fetch = function(url, opts={}) {
+  const token = getToken();
+  if (token && typeof url === 'string' && url.startsWith('/api/')) {
+    opts.headers = { ...(opts.headers||{}), 'Authorization': 'Bearer ' + token };
+  }
+  return _origFetch(url, opts).then(res => {
+    if (res.status === 401 && typeof url === 'string' && url.startsWith('/api/')) {
+      logout(); throw new Error('Non autorizzato');
+    }
+    return res;
+  });
+};
+
+async function carica() {
+  const data = await fetch('/api/impostazioni').then(r => r.json());
+  CAMPI.forEach(k => { const el=document.getElementById(k); if(el) el.value=data[k]??''; });
+}
+
+async function salva() {
+  const valori = {};
+  CAMPI.forEach(k => { const el=document.getElementById(k); if(el) valori[k]=parseFloat(el.value)||0; });
+  const res = await fetch('/api/impostazioni',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({valori})});
+  if (res.ok) {
+    const msg=document.getElementById('savedMsg'); msg.style.display='block';
+    setTimeout(()=>msg.style.display='none',2500);
+  }
+}
+
+// Auth check + carica
+(async function() {
+  if (!getToken()) { window.location.href='/login.html'; return; }
+  try {
+    await fetch('/api/auth/me').then(r => { if(!r.ok) throw new Error(); return r.json(); });
+    document.querySelectorAll('.user-label').forEach(el => el.textContent = '👤 ' + getNome());
+    await carica();
+  } catch(e) { logout(); }
+})();
+</script>
+</body>
+</html>

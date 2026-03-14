@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#3B82F6">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<title>Busta Paga – Gestione Turni</title>
+<style>
+  :root { --bg:#0F172A; --card:#1E293B; --card2:#263348; --border:#334155; --text:#E2E8F0; --muted:#94A3B8; --accent:#3B82F6; --green:#10B981; --red:#EF4444; --radius:10px; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; }
+
+  header { background:var(--card); border-bottom:1px solid var(--border); padding:16px 24px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header h1 { font-size:1.2rem; font-weight:700; }
+  header h1 span { color:var(--accent); }
+  nav { display:flex; gap:4px; }
+  nav a { color:var(--muted); text-decoration:none; font-size:0.9rem; padding:6px 14px; border-radius:8px; }
+  nav a:hover { background:var(--card2); color:var(--text); }
+  .nav-controls { display:flex; align-items:center; gap:8px; margin-left:auto; }
+  .nav-controls select, .nav-controls button { background:var(--card2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:6px 14px; font-size:0.9rem; cursor:pointer; }
+  .nav-controls button:hover { background:var(--accent); border-color:var(--accent); }
+
+  .container { max-width:920px; margin:32px auto; padding:0 24px; display:flex; flex-direction:column; gap:20px; }
+
+  /* Intestazione busta */
+  .busta-header { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:24px; }
+  .busta-title { font-size:1.5rem; font-weight:800; text-align:center; letter-spacing:.05em; margin-bottom:4px; }
+  .busta-subtitle { text-align:center; color:var(--muted); font-size:0.9rem; margin-bottom:20px; }
+  .busta-info { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+  .info-box { background:var(--card2); border-radius:8px; padding:10px 14px; }
+  .info-box .label { font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  .info-box .value { font-size:0.95rem; font-weight:700; margin-top:2px; }
+
+  /* Tabella voci */
+  .section-card { background:var(--card); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+  .section-head { padding:14px 20px; background:var(--card2); font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); }
+  table { width:100%; border-collapse:collapse; }
+  th { padding:10px 16px; font-size:0.75rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; text-align:left; background:var(--card2); }
+  th.num { text-align:right; }
+  td { padding:10px 16px; border-top:1px solid var(--border); font-size:0.875rem; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  td.zero { color:var(--border); }
+  tr:hover td { background:rgba(255,255,255,0.02); }
+  tr.total-row td { font-weight:700; background:var(--card2); font-size:0.95rem; }
+  tr.total-row td.green { color:var(--green); }
+  tr.total-row td.red   { color:var(--red); }
+
+  /* Netto finale */
+  .netto-card { background:linear-gradient(135deg,#1E3A5F,#1E293B); border:1px solid #3B82F6; border-radius:14px; padding:28px 32px; display:flex; justify-content:space-between; align-items:center; }
+  .netto-label { font-size:1rem; color:var(--muted); font-weight:600; }
+  .netto-val { font-size:2.4rem; font-weight:800; color:#60A5FA; letter-spacing:.02em; }
+
+  /* Ore riepilogo */
+  .ore-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; padding:16px; }
+  .ore-item { background:var(--card2); border-radius:8px; padding:10px 12px; text-align:center; }
+  .ore-item .v { font-size:1.2rem; font-weight:800; margin-bottom:2px; }
+  .ore-item .l { font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+
+  .fiscal-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; padding:16px; }
+  .fiscal-item { background:var(--card2); border-radius:8px; padding:10px 14px; }
+  .fiscal-item .fl { font-size:0.75rem; color:var(--muted); margin-bottom:4px; }
+  .fiscal-item .fv { font-size:1rem; font-weight:700; }
+
+  .loading { text-align:center; padding:60px; color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>💶 <span>Busta Paga</span></h1>
+  <nav>
+    <a href="/">📅 Calendario</a>
+    <a href="/impostazioni.html">⚙️ Impostazioni</a>
+  </nav>
+  <div class="nav-controls">
+    <button onclick="changeNav(-1)">◀</button>
+    <select id="selMese"></select>
+    <select id="selAnno"></select>
+    <button onclick="changeNav(1)">▶</button>
+  </div>
+  <button onclick="logout()" style="background:rgba(239,68,68,.15);color:#FCA5A5;border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:6px 14px;font-size:0.85rem;cursor:pointer;">Esci</button>
+  <span class="user-label" style="font-size:0.85rem;color:var(--muted)"></span>
+</header>
+
+<div class="container" id="container">
+  <div class="loading">Caricamento…</div>
+</div>
+
+<script>
+const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+let anno = new Date().getFullYear();
+let mese = new Date().getMonth() + 1;
+
+function initSelectors() {
+  const sm = document.getElementById('selMese');
+  const sa = document.getElementById('selAnno');
+  MESI.forEach((m,i) => { const o=document.createElement('option'); o.value=i+1; o.textContent=m; if(i+1===mese) o.selected=true; sm.appendChild(o); });
+  for (let y=2024; y<=2030; y++) { const o=document.createElement('option'); o.value=y; o.textContent=y; if(y===anno) o.selected=true; sa.appendChild(o); }
+  sm.onchange = () => { mese=parseInt(sm.value); load(); };
+  sa.onchange = () => { anno=parseInt(sa.value); load(); };
+}
+
+function changeNav(d) {
+  mese += d;
+  if (mese > 12) { mese=1; anno++; }
+  if (mese < 1)  { mese=12; anno--; }
+  document.getElementById('selMese').value = mese;
+  document.getElementById('selAnno').value = anno;
+  load();
+}
+
+function fmt(n) {
+  if (n === null || n === undefined) return '—';
+  return n.toLocaleString('it-IT', { minimumFractionDigits:2, maximumFractionDigits:2 }) + ' €';
+}
+function fmtH(h) {
+  if (!h) return '0:00';
+  const hh=Math.floor(h), mm=Math.round((h-hh)*60);
+  return `${hh}:${String(mm).padStart(2,'0')}`;
+}
+
+async function load() {
+  document.getElementById('container').innerHTML = '<div class="loading">Caricamento…</div>';
+  const data = await fetch(`/api/bustapaga/${anno}/${mese}`).then(r => r.json());
+  render(data);
+}
+
+function render(d) {
+  const ot = d.ore_totali;
+  const meseTxt = `${MESI[mese-1]} ${anno}`;
+
+  const mesiIt = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+  const mesePrecIdx = d.mese_prec - 1;
+  const mesePrecTxt = `${mesiIt[mesePrecIdx]} ${d.anno_prec}`;
+
+  let html = `
+  <div class="busta-header">
+    <div class="busta-title">BUSTA PAGA SIMULATA</div>
+    <div class="busta-subtitle">${meseTxt}</div>
+    <div class="busta-info">
+      <div class="info-box"><div class="label">Periodo</div><div class="value">${meseTxt}</div></div>
+      <div class="info-box"><div class="label">Giorni lavorati</div><div class="value">${ot.giorni_lavoro} gg</div></div>
+      <div class="info-box"><div class="label">Domeniche lavorate</div><div class="value">${ot.domeniche}</div></div>
+    </div>
+  </div>
+
+  <div style="background:#1E3A5F;border:1px solid #3B82F6;border-radius:10px;padding:12px 16px;font-size:0.85rem;color:#93C5FD;">
+    ℹ️ Le voci variabili (notturni, straordinari, reperibilità) si riferiscono ai turni di <strong>${mesePrecTxt}</strong>, pagati in questa busta.
+  </div>
+
+  <!-- Ore riepilogo -->
+  <div class="section-card">
+    <div class="section-head">📊 Riepilogo ore</div>
+    <div class="ore-grid">
+      <div class="ore-item"><div class="v">${fmtH(ot.ore_diurne)}</div><div class="l">Ord. Diurne</div></div>
+      <div class="ore-item"><div class="v" style="color:#818CF8">${fmtH(ot.ore_notturne)}</div><div class="l">Ord. Notturne</div></div>
+      <div class="ore-item"><div class="v" style="color:#F59E0B">${fmtH(ot.strao_diurno)}</div><div class="l">Strao Fer. D</div></div>
+      <div class="ore-item"><div class="v" style="color:#F59E0B">${fmtH(ot.strao_notturno)}</div><div class="l">Strao Fer. N</div></div>
+      <div class="ore-item"><div class="v" style="color:#EC4899">${fmtH(ot.strao_fest_diurno)}</div><div class="l">Strao Fest. D</div></div>
+      <div class="ore-item"><div class="v" style="color:#EC4899">${fmtH(ot.strao_fest_notturno)}</div><div class="l">Strao Fest. N</div></div>
+      <div class="ore-item"><div class="v" style="color:#10B981">${ot.rep_feriale}</div><div class="l">Rep. Feriale</div></div>
+      <div class="ore-item"><div class="v" style="color:#10B981">${ot.rep_festiva}</div><div class="l">Rep. Festiva</div></div>
+    </div>
+  </div>
+
+  <!-- Competenze -->
+  <div class="section-card">
+    <div class="section-head">✅ Competenze</div>
+    <table>
+      <thead><tr><th>Voce</th><th>Rif.</th><th class="num">Ore/Qty</th><th class="num">Tariffa</th><th class="num">Importo</th></tr></thead>
+      <tbody>`;
+
+  for (const v of d.voci_competenze) {
+    const zero = v.importo === 0;
+    html += `<tr>
+      <td class="${zero?'zero':''}">${v.voce}</td>
+      <td style="font-size:0.78rem;color:var(--muted)">${v.ref}</td>
+      <td class="num ${zero?'zero':''}">${v.qty !== null ? (Number.isInteger(v.qty) ? v.qty : fmtH(v.qty)) : '—'}</td>
+      <td class="num ${zero?'zero':''}">${v.tariffa !== null ? v.tariffa.toFixed(5) : '—'}</td>
+      <td class="num ${zero?'zero':''}">${fmt(v.importo)}</td>
+    </tr>`;
+  }
+
+  html += `<tr class="total-row">
+    <td colspan="3">Totale competenze</td>
+    <td class="num green">${fmt(d.tot_competenze)}</td>
+  </tr></tbody></table></div>
+
+  <!-- Trattenute -->
+  <div class="section-card">
+    <div class="section-head">🔻 Trattenute</div>
+    <table>
+      <thead><tr><th>Voce</th><th class="num">Importo</th></tr></thead>
+      <tbody>`;
+
+  for (const v of d.voci_trattenute) {
+    const badge = v.calcolato ? '<span style="font-size:0.7rem;background:#1E3A5F;color:#60A5FA;padding:2px 6px;border-radius:4px;margin-left:6px;">stimato</span>' : '';
+    html += `<tr><td>${v.voce}${badge}</td><td class="num">${fmt(v.importo)}</td></tr>`;
+  }
+
+  html += `<tr class="total-row"><td>Totale trattenute</td><td class="num red">${fmt(d.tot_trattenute)}</td></tr>
+  </tbody></table></div>
+
+  <!-- Dettaglio fiscale -->
+  <div class="section-card">
+    <div class="section-head">🏛 Dettaglio fiscale stimato</div>
+    <div class="fiscal-grid">
+      <div class="fiscal-item"><div class="fl">Imponibile annuo stimato</div><div class="fv">${fmt(d.dettaglio_fiscale.imponibile_annuo_stimato)}</div></div>
+      <div class="fiscal-item"><div class="fl">IRPEF lorda annua</div><div class="fv">${fmt(d.dettaglio_fiscale.irpef_lorda_annua)}</div></div>
+      <div class="fiscal-item"><div class="fl">Detrazione applicata</div><div class="fv" style="color:#10B981">- ${fmt(d.dettaglio_fiscale.detrazione_applicata)}</div></div>
+      <div class="fiscal-item"><div class="fl">IRPEF netta annua</div><div class="fv">${fmt(d.dettaglio_fiscale.irpef_netta_annua)}</div></div>
+      <div class="fiscal-item"><div class="fl">INPS mensile</div><div class="fv">${fmt(d.dettaglio_fiscale.inps_mensile)}</div></div>
+      <div class="fiscal-item"><div class="fl">IRPEF mensile</div><div class="fv">${fmt(d.dettaglio_fiscale.irpef_mensile)}</div></div>
+    </div>
+  </div>
+
+  <!-- Netto -->
+  <div class="netto-card">
+    <div>
+      <div class="netto-label">Netto stimato a pagare</div>
+      <div style="font-size:0.78rem;color:var(--muted);margin-top:2px;">⚠️ Simulazione approssimativa – non include IRPEF e contributi INPS</div>
+    </div>
+    <div class="netto-val">${fmt(d.netto)}</div>
+  </div>`;
+
+  document.getElementById('container').innerHTML = html;
+}
+
+initSelectors();
+</script>
+<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
+// ── AUTH ─────────────────────────────────────────────────────────────────────
+function getToken() { return localStorage.getItem('token'); }
+function getNome()  { return localStorage.getItem('nome') || localStorage.getItem('username') || ''; }
+function logout()   { localStorage.removeItem('token'); localStorage.removeItem('username'); localStorage.removeItem('nome'); window.location.href='/login.html'; }
+
+// Inietta token in ogni fetch API
+const _origFetch = window.fetch.bind(window);
+window.fetch = function(url, opts={}) {
+  const token = getToken();
+  if (token && typeof url === 'string' && url.startsWith('/api/')) {
+    opts.headers = { ...(opts.headers||{}), 'Authorization': 'Bearer ' + token };
+  }
+  return _origFetch(url, opts).then(res => {
+    if (res.status === 401 && typeof url === 'string' && url.startsWith('/api/')) {
+      logout(); throw new Error('Non autorizzato');
+    }
+    return res;
+  });
+};
+
+// Controlla login all'avvio
+(async function checkAuth() {
+  if (!getToken()) { window.location.href='/login.html'; return; }
+  try {
+    const me = await fetch('/api/auth/me').then(r=>r.json());
+    const nomeTxt = getNome();
+    document.querySelectorAll('.user-label').forEach(el => el.textContent = '👤 ' + nomeTxt);
+    load();
+  } catch(e) { logout(); }
+})();
+
+</script>
+</body>
+</html>
